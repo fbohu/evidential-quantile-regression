@@ -2,27 +2,32 @@
 
 from .model import Model
 import tensorflow as tf
+from tensorflow.keras.regularizers import l2
 import numpy as np
 
 
 class Ensemble(Model):
-    def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles, patience = 50, learning_rate=3e-4):
-        super(Ensemble, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate)
+    def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=5, drop_prob=0.1, lam=3e-4, patience = 50, learning_rate=3e-4, seed=0):
+        super(Ensemble, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed)
+        tf.random.set_seed(seed)
+        np.random.seed(seed)
+        self.name = 'ensemble'
         self.num_ensembles = num_ensembles
-        self.drop_prob = 0.1
+        self.lam = lam
+        self.drop_prob = drop_prob
         # Create the ensemble of models
-        self.models = [self.create_model(input_shape, num_neurons, num_layers, activation, num_ensembles) for _ in range(num_ensembles)] 
+        self.models = [self.create_model(input_shape, num_neurons, num_layers, dropout=drop_prob, activation= activation) for _ in range(num_ensembles)] 
         # Create optimizers for each model in the ensemble
-        self.optimizers = [tf.optimizers.Adam(self.learning_rate) for _ in range(self.num_ensembles)]
+        self.optimizers = [tf.optimizers.Adam(learning_rate) for _ in range(self.num_ensembles)]
         self.history = []
 
-    def create_model(self, input_shape, num_neurons, num_layers, activation, num_ensembles):
+    def create_model(self, input_shape, num_neurons, num_layers, dropout, activation):
         inputs = tf.keras.Input(input_shape)
         x = inputs
         for _ in range(num_layers):
             x = tf.keras.layers.Dense(num_neurons, activation=activation)(x)
-            x = tf.keras.layers.Dropout(self.drop_prob)(x)
-        output = tf.keras.layers.Dense(self.num_quantiles*2)(x)
+            x = tf.keras.layers.Dropout(dropout)(x)
+        output = tf.keras.layers.Dense(2.0*self.num_quantiles)(x)
         model = tf.keras.Model(inputs=inputs, outputs=output)
 
         return model
@@ -35,8 +40,8 @@ class Ensemble(Model):
 
     def predict(self, x):
         predictions = []
-        for model in self.models:
-            output = model(x)
+        for i in range(self.num_ensembles):
+            output = self.models[i](x)
             mu, sigma = tf.split(output, 2, axis=-1)
             predictions.append(mu)
         return tf.reduce_mean(predictions, axis=0)
