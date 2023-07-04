@@ -1,33 +1,29 @@
-# Evidental Regression which is a model class
+# Ensemble model which is a model class
+
 from .model import Model
-from layers.dense import *
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
 import numpy as np
-import time
-from quantilelosses import *
-import functools
-import tensorflow as tf
-# tf.enable_eager_execution()
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, \
     UpSampling2D, Cropping2D, concatenate, ZeroPadding2D, SpatialDropout2D
 import functools
 from layers.conv2d import Conv2DNormalGamma
 
 
-
-class ConvEvidental(Model):
-    def __init__(self, input_shape, num_neurons, num_layers, activation, drop_prob=0.1, lam = 3e-4, patience = 50, learning_rate=3e-4,  coeff=5e-1, seed=0):
-        super(ConvEvidental, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed)
+class ConvEnsemble(Model):
+    def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=5, drop_prob=0.1, lam=3e-4, patience = 50, learning_rate=3e-4, seed=0):
+        super(ConvEnsemble, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed)
         tf.random.set_seed(seed)
         np.random.seed(seed)
-        self.name = 'evidental'
-        self.coeff = coeff
+        self.name = 'ensemble'
+        self.num_ensembles = num_ensembles
         self.lam = lam
         self.drop_prob = drop_prob
-        self.model = self.create_model(input_shape, num_neurons, num_layers, dropout=self.drop_prob, activation= activation)
+        # Create the ensemble of models
+        self.models = [self.create_model(input_shape, num_neurons, num_layers, dropout=drop_prob, activation= activation) for _ in range(num_ensembles)] 
         # Create optimizers for each model in the ensemble
-        self.optimizer = tf.optimizers.Adam(self.learning_rate) 
+        self.optimizers = [tf.optimizers.Adam(learning_rate) for _ in range(self.num_ensembles)]
+        self.history = []
 
     def create_model(self, input_shape, num_neurons, num_layers, dropout, activation):
         concat_axis = 3
@@ -84,51 +80,43 @@ class ConvEvidental(Model):
 
         ch, cw = get_crop_shape(inputs, conv9)
         conv9 = ZeroPadding2D(padding=((ch[0], ch[1]), (cw[0], cw[1])))(conv9)
-        conv10 = Conv2D_(4*self.num_quantiles, (1, 1))(conv9)
-        evidential_output = Conv2DNormalGamma(self.num_quantiles, (1, 1))(conv10)
+        conv10 = Conv2D_(4*2*self.num_quantiles, (1, 1))(conv9)
+        evidential_output = Conv2DNormalGamma(2*self.num_quantiles, (1, 1))(conv10)
 
         model = tf.keras.models.Model(inputs=inputs, outputs=evidential_output)
         return model
 
     def train(self, x_train, y_train, batch_size=128, epochs = 10):
-        self.model.compile(optimizer=self.optimizer, loss=self.loss_,  metrics=[self.nll_eval])
-        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
-        self.history = self.model.fit(x_train, y_train, batch_size=batch_size, verbose=2, epochs=epochs,
-                                        shuffle=True, validation_split=0.10, callbacks=[callback])
+        for (model_, optimizer_) in zip(self.models, self.optimizers):
+            model_.compile(optimizer=optimizer_, loss=self.nll_loss)
+            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
+            self.history.append(model_.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback]))
 
     def predict(self, x):
-        output = self.model(x)
-        mu, _, _, _ = tf.split(output, 4, axis=-1)
-        return mu
-
-    def loss_(self, y, output):
-        loss = 0.0
-        mu, v, alpha, beta = tf.split(output, 4, axis=-1)
-        for i, q in enumerate(self.quantiles):
-            loss += quant_evi_loss(y, tf.expand_dims(mu[:,i], 1), tf.expand_dims(v[:,i],1),
-                                        tf.expand_dims(alpha[:,i],1), tf.expand_dims(beta[:,i],1), q, 
-                                        coeff=self.coeff)#1e-2)#5e-2)#1e-2)
-        return loss
+        predictions = []
+        for i in range(self.num_ensembles):
+            output = self.models[i](x)
+            mu, sigma = tf.split(output, 2, axis=-1)
+            predictions.append(mu)
+        return tf.reduce_mean(predictions, axis=0)
 
     def get_uncertainties(self, x):
-        output = self.model(x)
-        mu, v, alpha, beta = tf.split(output, 4, axis=-1)
-        var = np.sqrt((beta /(v*(alpha - 1))))
-        return var
+        predictions = []
+        for model in self.models:
+            predictions.append(model(x))
+        return tf.math.reduce_std(predictions, axis=0)
 
     def get_mu_sigma(self, x):
-        output = self.model(x)
-        mu, v, alpha, beta = tf.split(output, 4, axis=-1)
-        sigma = beta/(alpha-1.0)
-        return mu, sigma
-
-    def nll_eval(self, y, y_pred):
-        mu, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
-        sigma = beta/(alpha-1.0)        
-        loss = 0.0
-        for i, q in enumerate(self.quantiles):
-            loss += self.nll(y, tf.expand_dims(mu[:,i],1), tf.expand_dims(sigma[:,i],1), q)
-        return loss
+        mu = []
+        sigma = []
+        for model in self.models:
+            output = model(x)
+            mu_, sigma_ = tf.split(output, 2, axis=-1)
+            mu.append(mu_)
+            sigma.append(tf.nn.softplus(sigma_) + 1e-6)
+        #sigma = tf.nn.softplus(sigma) + 1e-6
+        
+        return tf.reduce_mean(mu, axis=0), tf.reduce_mean(sigma, axis=0)
 
 
 def get_crop_shape(target, refer):
