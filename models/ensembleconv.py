@@ -90,7 +90,7 @@ class ConvEnsemble(Model):
         for (model_, optimizer_) in zip(self.models, self.optimizers):
             model_.compile(optimizer=optimizer_, loss=self.nll_loss)
             callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
-            self.history.append(model_.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback]))
+            self.history.append(model_.fit(x_train, y_train, batch_size=batch_size,verbose=1, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback]))
 
     def predict(self, x):
         predictions = []

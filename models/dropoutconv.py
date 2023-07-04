@@ -91,7 +91,7 @@ class ConvDropout(Model):
     def train(self, x_train, y_train,batch_size=128, epochs = 10):
         self.model.compile(optimizer=self.optimizer, loss=self.nll_loss)
         callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=True, verbose=1)
-        self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback])
+        self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=1, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback])
 
     def predict(self, x):
         predictions = []
@@ -119,4 +119,21 @@ class ConvDropout(Model):
             sigma.append(tf.nn.softplus(sigma_) + 1e-6)
 
         return tf.reduce_mean(mu, axis=0), tf.reduce_mean(sigma, axis=0)
-        
+
+def get_crop_shape(target, refer):
+    # width, the 3rd dimension
+    cw = (target.get_shape()[2] - refer.get_shape()[2])
+    assert (cw >= 0)
+    if cw % 2 != 0:
+        cw1, cw2 = int(cw/2), int(cw/2) + 1
+    else:
+        cw1, cw2 = int(cw/2), int(cw/2)
+    # height, the 2nd dimension
+    ch = (target.get_shape()[1] - refer.get_shape()[1])
+    assert (ch >= 0)
+    if ch % 2 != 0:
+        ch1, ch2 = int(ch/2), int(ch/2) + 1
+    else:
+        ch1, ch2 = int(ch/2), int(ch/2)
+
+    return (ch1, ch2), (cw1, cw2)
