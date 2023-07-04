@@ -28,24 +28,29 @@ class ConvEnsemble(Model):
     def create_model(self, input_shape, num_neurons, num_layers, dropout, activation):
         concat_axis = 3
         inputs = tf.keras.layers.Input(shape=input_shape)
+        # inputs_normalized = tf.multiply(inputs, 1/255.)
 
         Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same')
 
-        conv1 = Conv2D_(32, (3, 3), name='conv1_1')(inputs)
+        conv1 = Conv2D_(32, (3, 3))(inputs)
         conv1 = Conv2D_(32, (3, 3))(conv1)
         pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+        pool1 = SpatialDropout2D(self.drop_prob)(pool1)
 
         conv2 = Conv2D_(64, (3, 3))(pool1)
         conv2 = Conv2D_(64, (3, 3))(conv2)
         pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+        pool2 = SpatialDropout2D(self.drop_prob)(pool2)
 
         conv3 = Conv2D_(128, (3, 3))(pool2)
         conv3 = Conv2D_(128, (3, 3))(conv3)
         pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+        pool3 = SpatialDropout2D(self.drop_prob)(pool3)
 
         conv4 = Conv2D_(256, (3, 3))(pool3)
         conv4 = Conv2D_(256, (3, 3))(conv4)
         pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+        pool4 = SpatialDropout2D(self.drop_prob)(pool4)
 
         conv5 = Conv2D_(512, (3, 3))(pool4)
         conv5 = Conv2D_(512, (3, 3))(conv5)
@@ -80,10 +85,10 @@ class ConvEnsemble(Model):
 
         ch, cw = get_crop_shape(inputs, conv9)
         conv9 = ZeroPadding2D(padding=((ch[0], ch[1]), (cw[0], cw[1])))(conv9)
-        conv10 = Conv2D_(4*2*self.num_quantiles, (1, 1))(conv9)
-        evidential_output = Conv2DNormalGamma(2*self.num_quantiles, (1, 1))(conv10)
+        conv10 = Conv2D(2*self.num_quantiles, (1, 1))(conv9)
 
-        model = tf.keras.models.Model(inputs=inputs, outputs=evidential_output)
+        # conv10 = tf.multiply(conv10, 255.)
+        model = tf.keras.models.Model(inputs=inputs, outputs=conv10)
         return model
 
     def train(self, x_train, y_train, batch_size=128, epochs = 10):
