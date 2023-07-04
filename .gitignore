@@ -1,5 +1,5 @@
 # ignore pycache file
 __pycache__/*
 
-
+*/__pycache__/*
 
