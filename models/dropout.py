@@ -35,7 +35,7 @@ class Dropout(Model):
     def train(self, x_train, y_train,batch_size=128, epochs = 10):
         self.model.compile(optimizer=self.optimizer, loss=self.nll_loss)
         callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=True, verbose=1)
-        self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=0, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback])
+        self.history = self.model.fit(x_train, y_train, batch_size=batch_size, verbose=0, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback])
 
     def predict(self, x):
         predictions = []

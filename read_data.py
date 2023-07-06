@@ -8,11 +8,13 @@ tfd = tfp.distributions
 
 def get_dist(which, x):
     return {
-        'Gaussian': tfd.Normal(0, 3 * abs(x)+0.2)
+        'Gaussian': tfd.Normal(0,2 * abs(x)+0.2),
+        'LogGaussian': tfd.LogNormal(0, 0.25*x),
+        'Expo': tfd.Exponential(rate=1/(2 * abs(x)+0.2))
     }[which]
 
 
-def get_synth_data(name = 'Gaussian', x_min=-4, x_max=4, n=1000,quantiles = [0.5], train=True):
+def get_synth_data(name = 'Gaussian', x_min=-4, x_max=4, n=1000, quantiles = [0.5], train=True):
     x = np.linspace(x_min, x_max, n)
     x = np.expand_dims(x, -1).astype(np.float32)
     
@@ -20,7 +22,7 @@ def get_synth_data(name = 'Gaussian', x_min=-4, x_max=4, n=1000,quantiles = [0.5
     dist = get_dist(name, x)
     y = x**3 + dist.sample().numpy().astype(np.float32)    
 
-    return x, y, dist.quantile(quantiles).numpy().astype(np.float32)
+    return x, y, x**3+dist.quantile(quantiles).numpy().astype(np.float32)
 
 
 vb_dir   = os.path.dirname(__file__)

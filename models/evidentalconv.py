@@ -33,7 +33,7 @@ class ConvEvidental(Model):
         concat_axis = 3
         inputs = tf.keras.layers.Input(shape=input_shape)
 
-        Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same')
+        Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same', kernel_regularizer=l2(self.lam))
 
         conv1 = Conv2D_(32, (3, 3), name='conv1_1')(inputs)
         conv1 = Conv2D_(32, (3, 3))(conv1)
@@ -92,9 +92,11 @@ class ConvEvidental(Model):
 
     def train(self, x_train, y_train, batch_size=128, epochs = 10):
         self.model.compile(optimizer=self.optimizer, loss=self.loss_,  metrics=[self.nll_eval])
-        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
-        self.history = self.model.fit(x_train, y_train, batch_size=batch_size, verbose=1, epochs=epochs,
-                                        shuffle=True, validation_split=0.10, callbacks=[callback])
+        mc = tf.keras.callbacks.ModelCheckpoint('checkpoint/evidental.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,  restore_best_weights=True, verbose=1)
+        self.history = self.model.fit(x_train, y_train, batch_size=batch_size, verbose=2, epochs=epochs,
+                                        shuffle=True, validation_split=0.10)#, callbacks=[mc])
+        #self.model.load_weights('checkpoint/evidental.h5')
 
     def predict(self, x):
         output = self.model(x)
@@ -105,8 +107,8 @@ class ConvEvidental(Model):
         loss = 0.0
         mu, v, alpha, beta = tf.split(output, 4, axis=-1)
         for i, q in enumerate(self.quantiles):
-            loss += quant_evi_loss(y, tf.expand_dims(mu[:,i], 1), tf.expand_dims(v[:,i],1),
-                                        tf.expand_dims(alpha[:,i],1), tf.expand_dims(beta[:,i],1), q, 
+            loss += quant_evi_loss(y, tf.expand_dims(mu[:,:,:,i], 3), tf.expand_dims(v[:,:,:,i], 3),
+                                        tf.expand_dims(alpha[:,:,:,i], 3), tf.expand_dims(beta[:,:,:,i], 3), q, 
                                         coeff=self.coeff)#1e-2)#5e-2)#1e-2)
         return loss
 
@@ -127,7 +129,7 @@ class ConvEvidental(Model):
         sigma = beta/(alpha-1.0)        
         loss = 0.0
         for i, q in enumerate(self.quantiles):
-            loss += self.nll(y, tf.expand_dims(mu[:,i],1), tf.expand_dims(sigma[:,i],1), q)
+            loss += self.nll(y, tf.expand_dims(mu[:,:,:,i], 3), tf.expand_dims(sigma[:,:,:,i], 3), q)
         return loss
 
 

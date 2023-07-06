@@ -28,10 +28,11 @@ class ConvDropout(Model):
 
     def create_model(self, input_shape, num_neurons, num_layers, dropout, activation):    
         concat_axis = 3
+        reg = 1e-3
         inputs = tf.keras.layers.Input(shape=input_shape)
         # inputs_normalized = tf.multiply(inputs, 1/255.)
 
-        Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same')
+        Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same', kernel_regularizer=l2(self.lam))
 
         conv1 = Conv2D_(32, (3, 3))(inputs)
         conv1 = Conv2D_(32, (3, 3))(conv1)
@@ -95,8 +96,10 @@ class ConvDropout(Model):
 
     def train(self, x_train, y_train,batch_size=128, epochs = 10):
         self.model.compile(optimizer=self.optimizer, loss=self.nll_loss)
-        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=True, verbose=1)
-        self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=1, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback])
+        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=False, verbose=1)
+        mc = tf.keras.callbacks.ModelCheckpoint('checkpoint/dropout.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+        self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10)#, callbacks=[mc])
+        #self.model.load_weights('checkpoint/dropout.h5')
 
     def predict(self, x):
         predictions = []
@@ -110,7 +113,9 @@ class ConvDropout(Model):
     def get_uncertainties(self, x):
         predictions = []
         for _ in range(self.num_ensembles):
-            predictions.append(tf.stop_gradient(self.model(x, training=True)))
+            output = tf.stop_gradient(self.model(x, training=True))
+            mu, sigma = tf.split(output, 2, axis=-1)
+            predictions.append(mu)
         return tf.math.reduce_std(predictions, axis=0)
 
     def get_mu_sigma(self, x):
@@ -124,6 +129,15 @@ class ConvDropout(Model):
             sigma.append(tf.nn.softplus(sigma_) + 1e-6)
 
         return tf.reduce_mean(mu, axis=0), tf.reduce_mean(sigma, axis=0)
+
+    def nll_loss(self, y, output):
+        mu, sigma = tf.split(output, 2, axis=-1)
+        sigma = tf.nn.softplus(sigma) + 1e-6
+        loss = 0.0
+        for i, q in enumerate(self.quantiles):
+            loss += self.nll(y, tf.expand_dims(mu[:,:,:,i],3), tf.expand_dims(sigma[:,:,:,i],3), q)
+        return loss
+
 
 def get_crop_shape(target, refer):
     # width, the 3rd dimension

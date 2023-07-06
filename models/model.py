@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 import random
 import time
-from read_data import *
+from read_data import load_dataset, get_synth_data
 from functools import partial
 from bayes_opt import BayesianOptimization
 from bayes_opt import UtilityFunction
@@ -60,7 +60,6 @@ class Model(object):
             preds = self.predict(x)
         time_ = (time.time()-tic)/20.0
 
-        
         return tl.numpy(), nll_.numpy(), time_
 
     def nll_loss(self, y, output):
@@ -109,9 +108,8 @@ class Model(object):
         return x_, y_
 
 
-    def fit_with(self, dropout, lr, batch_size):
+    def fit_with_uci(self, dropout, lr, batch_size):
         (x_train, y_train), (x_test, y_test), _, _  = load_dataset(self.dataset, return_as_tensor=False, verbose=False)
-        
         scores = []
         for _ in range(5):
             model = self.create_model(x_train.shape[1:], 128, 2, dropout, activation=self.activation)
@@ -124,14 +122,36 @@ class Model(object):
                                             shuffle=True, callbacks=[callback], validation_split=0.10)
             
             scores.append(history.history['val_loss'][-1])
-        #print('Test loss:', scores)
         if np.isnan(np.mean(scores)):
             return -100.0
-        # Return the accuracy.
         return -1.0*np.mean(scores)
         
+    def fit_with_synth(self, dropout, lr, batch_size):
+        x_train, y_train, y_train_q95 = get_synth_data(self.dataset, x_min=-4,x_max= 4, n=1000, train=True, quantiles=[0.05, 0.95])
+        scores = []
+        for _ in range(5):
+            model = self.create_model(x_train.shape[1:], 128, 3, dropout, activation=self.activation)
+            optimizer = tf.optimizers.Adam(lr)
+            loss_fn = self.loss_ if self.name == 'evidental' else self.nll_loss
+            model.compile(optimizer=optimizer, loss=loss_fn)
+            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
+            
+            history = model.fit(x_train, y_train, batch_size=int(batch_size), verbose=0, epochs=self.epochs,
+                                            shuffle=True, callbacks=[callback], validation_split=0.10)
+            
+            scores.append(history.history['val_loss'][-1])
+        if np.isnan(np.mean(scores)):
+            return -100.0
+        return -1.0*np.mean(scores)
+        
+
     def bayes_opt(self, dataset, results_path):
         self.dataset = dataset    
+        if self.dataset ['boston', 'concrete', 'energy-efficiency', 'kin8nm', 'naval', 'power-plant', 'protein', 'wine', 'yacht']:
+            fit_fun = self.fit_with_uci
+        else:
+            fit_fun = self.fit_with_synth
+
         params_nn ={
                 'dropout':(0.1, 0.5),
                 'lr':(1e-5, 5e-3),
@@ -141,14 +161,13 @@ class Model(object):
         random.seed(self.seed)
         tf.random.set_seed(self.seed)
         optimizer = BayesianOptimization(
-                     f=self.fit_with,
+                    f=fit_fun,
                     pbounds=params_nn,
                     verbose=2,  # verbose = 1 prints only when a maximum is observed, verbose = 0 is silent
                     random_state=123,
                 )
 
         acquisition_function = UtilityFunction(kind="ei", xi=1e-3)
-        #optimizer.maximize(init_points=50, n_iter=50)
         optimizer.maximize(init_points=15, n_iter=15, acquisition_function=acquisition_function)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))

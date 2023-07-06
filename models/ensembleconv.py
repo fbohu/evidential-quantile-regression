@@ -11,7 +11,7 @@ from layers.conv2d import Conv2DNormalGamma
 
 
 class ConvEnsemble(Model):
-    def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=5, drop_prob=0.1, lam=3e-4, patience = 50, learning_rate=3e-4, seed=0):
+    def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=1, drop_prob=0.1, lam=3e-4, patience = 50, learning_rate=3e-4, seed=0):
         super(ConvEnsemble, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed)
         tf.random.set_seed(seed)
         np.random.seed(seed)
@@ -30,7 +30,7 @@ class ConvEnsemble(Model):
         inputs = tf.keras.layers.Input(shape=input_shape)
         # inputs_normalized = tf.multiply(inputs, 1/255.)
 
-        Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same')
+        Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same', kernel_regularizer=l2(self.lam))
 
         conv1 = Conv2D_(32, (3, 3))(inputs)
         conv1 = Conv2D_(32, (3, 3))(conv1)
@@ -94,12 +94,23 @@ class ConvEnsemble(Model):
     def train(self, x_train, y_train, batch_size=128, epochs = 10):
         for (model_, optimizer_) in zip(self.models, self.optimizers):
             model_.compile(optimizer=optimizer_, loss=self.nll_loss)
-            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
-            self.history.append(model_.fit(x_train, y_train, batch_size=batch_size,verbose=1, epochs=epochs,shuffle=True, validation_split=0.10, callbacks=[callback]))
+            mc = tf.keras.callbacks.ModelCheckpoint('checkpoint/ensemble.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=True, verbose=1)
+            self.history.append(model_.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10))#, callbacks=[mc]))
+            #model_.save_weights('checkpoint/ensemble.h5')
+
+    def nll_loss(self, y, output):
+        mu, sigma = tf.split(output, 2, axis=-1)
+        sigma = tf.nn.softplus(sigma) + 1e-6
+        loss = 0.0
+        for i, q in enumerate(self.quantiles):
+            loss += self.nll(y, tf.expand_dims(mu[:,:,:,i],3), tf.expand_dims(sigma[:,:,:,i],3), q)
+        return loss
+
 
     def predict(self, x):
         predictions = []
-        for i in range(self.num_ensembles):
+        for i in range(self.num_ensembl6es):
             output = self.models[i](x)
             mu, sigma = tf.split(output, 2, axis=-1)
             predictions.append(mu)
@@ -108,7 +119,9 @@ class ConvEnsemble(Model):
     def get_uncertainties(self, x):
         predictions = []
         for model in self.models:
-            predictions.append(model(x))
+            output = tf.stop_gradient(model(x, training=True))
+            mu, sigma = tf.split(output, 2, axis=-1)
+            predictions.append(mu)
         return tf.math.reduce_std(predictions, axis=0)
 
     def get_mu_sigma(self, x):
