@@ -15,22 +15,11 @@ from models.evidental import Evidental
 import numpy as np
 import tensorflow as tf
 
+
 def get_hparams(dataset, model):
     with open('hparams/' + dataset + '/' + model + '.pickle', 'rb') as handle:
         hparams = pickle.load(handle)
     return hparams['params']
-    return {
-        'yacht': {'lr': 5e-4, 'batch_size': 1, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'naval': {'lr': 5e-4, 'batch_size': 1, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'concrete': {'lr': 3e-3, 'batch_size': 1, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'energy-efficiency': {'lr': 2e-3, 'batch_size': 1, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'kin8nm': {'lr': 1e-3, 'batch_size': 1, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'power-plant': {'lr': 3e-3, 'batch_size': 2, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'boston': {'lr': 1e-4, 'batch_size': 128, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'wine': {'lr': 1e-4, 'batch_size': 32, 'layers':2, 'dropout':0.1, 'lam': 3e-4,'hidden_size': 128},
-        'protein': {'lr': 3e-3, 'batch_size': 64, 'layers':2, 'dropout':0.1, 'lam': 3e-4, 'hidden_size': 128},
-        }[dataset]
-
 
 def get_model(which):
     return {
@@ -52,6 +41,8 @@ def main(args):
     #for i in range(args.n_trials):
     (x_train, y_train), (x_test, y_test), y_train_mu, y_train_scale  = load_dataset(args.dataset, return_as_tensor=False)
     modeltype = get_model(args.model)
+    
+    modeltype = get_model(args.model)
     hpara = get_hparams(args.dataset, args.model)
     print(hpara)
 
@@ -71,10 +62,12 @@ def main(args):
     nlls.append(nll)
     times.append(time)
 
+
+
     results = {
         'tls': tls,
         'nlls': nlls,
-        'times': times
+        'times': times,
     }
     print(results)
     with open(results_path + args.model + str(seeds) + '.pickle', 'wb') as handle:

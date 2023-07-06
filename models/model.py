@@ -147,16 +147,15 @@ class Model(object):
 
     def bayes_opt(self, dataset, results_path):
         self.dataset = dataset    
-        if self.dataset ['boston', 'concrete', 'energy-efficiency', 'kin8nm', 'naval', 'power-plant', 'protein', 'wine', 'yacht']:
+        if self.dataset in ['boston', 'concrete', 'energy-efficiency', 'kin8nm', 'naval', 'power-plant', 'protein', 'wine', 'yacht']:
             fit_fun = self.fit_with_uci
         else:
             fit_fun = self.fit_with_synth
-
         params_nn ={
                 'dropout':(0.1, 0.5),
                 'lr':(1e-5, 5e-3),
                 'batch_size':(16, 128)}
-                
+        print("hello")
         np.random.seed(self.seed)
         random.seed(self.seed)
         tf.random.set_seed(self.seed)
@@ -168,7 +167,7 @@ class Model(object):
                 )
 
         acquisition_function = UtilityFunction(kind="ei", xi=1e-3)
-        optimizer.maximize(init_points=15, n_iter=15, acquisition_function=acquisition_function)
+        optimizer.maximize(init_points=1, n_iter=1, acquisition_function=acquisition_function)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
 

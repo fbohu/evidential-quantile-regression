@@ -49,7 +49,7 @@ def main(args):
     hpara = get_hparams(args.dataset)
     
     model = modeltype(input_shape=x_train.shape[1:], num_neurons=1, 
-            num_layers=1, activation='relu', learning_rate=1, seed=seeds)
+            num_layers=1, activation='leaky_relu', learning_rate=1, seed=seeds)
     
     model.bayes_opt(args.dataset, results_path)
 

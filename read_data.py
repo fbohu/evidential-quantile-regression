@@ -9,7 +9,6 @@ tfd = tfp.distributions
 def get_dist(which, x):
     return {
         'Gaussian': tfd.Normal(0,2 * abs(x)+0.2),
-        'LogGaussian': tfd.LogNormal(0, 0.25*x),
         'Expo': tfd.Exponential(rate=1/(2 * abs(x)+0.2))
     }[which]
 
