@@ -10,10 +10,10 @@ from bayes_opt import UtilityFunction
 import pickle
 
 class Model(object):
-    def __init__(self, input_shape, num_neurons, num_layers, activation, patience = 50, learning_rate=3e-4, seed=0):
+    def __init__(self, input_shape, num_neurons, num_layers, activation, patience = 50, learning_rate=3e-4, seed=0, quantiles=[0.05, 0.95]):
         self.learning_rate = learning_rate
         #self.quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
-        self.quantiles = [0.05, 0.95]
+        self.quantiles = quantiles
         self.num_quantiles = len(self.quantiles)
         self.patience = patience
         self.epochs = 1000
@@ -127,14 +127,20 @@ class Model(object):
         return -1.0*np.mean(scores)
         
     def fit_with_synth(self, dropout, lr, batch_size):
-        x_train, y_train, y_train_q95 = get_synth_data(self.dataset, x_min=-4,x_max= 4, n=1000, train=True, quantiles=[0.05, 0.95])
+        x_train, y_train, y_train_q95 = get_synth_data(self.dataset, x_min=-4,x_max= 4, n=5000, train=True, quantiles=[0.05, 0.95])
         scores = []
         for _ in range(5):
             model = self.create_model(x_train.shape[1:], 128, 3, dropout, activation=self.activation)
             optimizer = tf.optimizers.Adam(lr)
-            loss_fn = self.loss_ if self.name == 'evidental' else self.nll_loss
+            if self.name == 'evidental':
+                loss_fn = self.loss_
+            elif self.name == 'evidental_gauss':
+                loss_fn = self.EvidentialRegressionLoss
+            else:
+                loss_fn = self.nll_loss
+            
             model.compile(optimizer=optimizer, loss=loss_fn)
-            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,   restore_best_weights=True, verbose=1)
+            callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,  restore_best_weights=True, verbose=1)
             
             history = model.fit(x_train, y_train, batch_size=int(batch_size), verbose=0, epochs=self.epochs,
                                             shuffle=True, callbacks=[callback], validation_split=0.10)
@@ -167,7 +173,7 @@ class Model(object):
                 )
 
         acquisition_function = UtilityFunction(kind="ei", xi=1e-3)
-        optimizer.maximize(init_points=1, n_iter=1, acquisition_function=acquisition_function)
+        optimizer.maximize(init_points=15, n_iter=15, acquisition_function=acquisition_function)
         for i, res in enumerate(optimizer.res):
             print("Iteration {}: \n\t{}".format(i, res))
 

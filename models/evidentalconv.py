@@ -17,8 +17,9 @@ from layers.conv2d import Conv2DNormalGamma
 
 
 class ConvEvidental(Model):
-    def __init__(self, input_shape, num_neurons, num_layers, activation, drop_prob=0.1, lam = 3e-4, patience = 50, learning_rate=3e-4,  coeff=5e-1, seed=0):
-        super(ConvEvidental, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed)
+    def __init__(self, input_shape, num_neurons, num_layers, activation, drop_prob=0.1, lam = 3e-4, patience = 50, learning_rate=3e-4,  coeff=5e-1, seed=0,
+                quantiles=[0.05, 0.95]):
+        super(ConvEvidental, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed, quantiles)
         tf.random.set_seed(seed)
         np.random.seed(seed)
         self.name = 'evidental'

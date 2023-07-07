@@ -64,7 +64,7 @@ def main(args):
     model = modeltype(input_shape=x_train.shape[1:], 
                 num_neurons= 128, 
                 num_layers=3, 
-                lam=0.0,
+                lam=1e-4,
                 activation='relu',
                 drop_prob=0.1,
                 learning_rate=5e-5,

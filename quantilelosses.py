@@ -42,6 +42,7 @@ def NIG_Reg(y, gamma, v, alpha, beta, w_i_dis, quantile, omega=0.01, reduce=True
     else:
         evi = 2*v+alpha+1/beta
         reg = error*evi
+        
     return tf.reduce_mean(reg) if reduce else reg
 
 def quant_evi_loss(y_true, gamma, v, alpha, beta, quantile, coeff=1.0, reduce=True):

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.evidental import Evidental
+from models.evidental_gauss import EvidentalGauss
 import numpy as np
 import tensorflow as tf
 
@@ -32,7 +33,8 @@ def get_model(which):
     return {
         'dropout': Dropout,
         'ensemble': Ensemble,
-        'evidental': Evidental
+        'evidental': Evidental,
+        'evidental_gauss': EvidentalGauss
     }[which]
 
 
@@ -41,13 +43,14 @@ def main(args):
     nlls = []
     times = []
     results_path = 'results/synth/' + args.dataset + "_" + args.model
+    quantiles = [0.05, 0.25, 0.75, 0.95]
     seeds = args.seed
     np.random.seed(seeds)
     random.seed(seeds)
     tf.random.set_seed(seeds)
-    x_train, y_train, y_train_q95 = get_synth_data('Gaussian', x_min=-4,x_max= 4, n=1000, train=True, quantiles=[0.05, 0.95])
-    x_test, y_test, y_test_q95 = get_synth_data('Gaussian', -4, 4, n=1000, train=True, quantiles=[0.05, 0.95])
-    x_plot, y_plot,  _ = get_synth_data('Gaussian', -7, 7, n=100, train=True)
+    x_train, y_train, y_train_q95 = get_synth_data(args.dataset, x_min=-4,x_max= 4, n=5000, train=True, quantiles=quantiles)
+    x_test, y_test, y_test_q95 = get_synth_data(args.dataset, -4, 4, n=1000, train=True, quantiles=quantiles)
+    x_plot, y_plot,  _ = get_synth_data(args.dataset, -7, 7, n=100, train=True)
     x_train, x_train_mu, x_train_scale = standardize(x_train)
     x_test = (x_test - x_train_mu) / x_train_scale
     x_plot = (x_plot - x_train_mu) / x_train_scale
@@ -57,19 +60,21 @@ def main(args):
     y_plot = (y_plot - y_train_mu) / y_train_scale
     
     modeltype = get_model(args.model)
-    hpara = get_hparams(args.dataset, args.model)
-    #print(hpara)
+    #hpara = get_hparams(args.dataset, args.model)
+
 
     model = modeltype(input_shape=x_train.shape[1:], 
-            num_neurons=128,#int(hpara['hidden_size']), 
-            num_layers=3,#int(hpara['layers']), 
+            num_neurons=128,
+            num_layers=3, 
             activation='leaky_relu',
-            drop_prob=hpara['dropout'],
-            learning_rate=hpara['lr'],
-            seed=seeds)
+            drop_prob=0.1,
+            learning_rate=3e-4,
+            patience=250,
+            seed=seeds,
+            quantiles=quantiles)
 
     
-    model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=model.epochs)
+    model.train(x_train, y_train, batch_size=128, epochs=500)
 
     tl, nll, time = model.evaluate(x_test, y_test, y_train_mu, y_train_scale)
     tls.append(tl)
@@ -80,7 +85,8 @@ def main(args):
     errors = (y_test_q95-(preds* y_train_scale + y_train_mu))
 
     mu, _ = model.get_mu_sigma(x_test)
-    mu = (mu*y_train_scale) + y_train_mu
+    #mu = (mu*y_train_scale) + y_train_mu
+    mu = (preds*y_train_scale) + y_train_mu
     sigma = model.get_uncertainties(x_test)*y_train_scale
 
     results = {

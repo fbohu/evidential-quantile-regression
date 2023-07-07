@@ -4,14 +4,18 @@
 from .model import Model
 from layers.dense import *
 import tensorflow as tf
+import tensorflow_probability as tfp
+tfd = tfp.distributions
 from tensorflow.keras.regularizers import l2
 import numpy as np
 import time
 from gaussianlosses import *
 
+
 class EvidentalGauss(Model):
-    def __init__(self, input_shape, num_neurons, num_layers, activation, drop_prob=0.1, lam = 3e-4, patience = 50, learning_rate=3e-4, seed=0):
-        super(EvidentalGauss, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed)
+    def __init__(self, input_shape, num_neurons, num_layers, activation, drop_prob=0.1, lam = 3e-4, patience = 50, learning_rate=3e-4, seed=0,
+                quantiles=[0.05, 0.95]):
+        super(EvidentalGauss, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed, quantiles)
         self.name = 'evidental_gauss'
         self.lam = lam
         self.drop_prob = drop_prob
@@ -29,6 +33,28 @@ class EvidentalGauss(Model):
         model = tf.keras.Model(inputs=inputs, outputs=output)
 
         return model
+
+    def predict(self, x):
+        output = self.model(x)
+        mu, v, alpha, beta = tf.split(output, 4, axis=-1)
+        dist = tfd.Normal(loc=mu, scale=np.sqrt(beta/(v*(alpha-1))))
+        return dist.quantile(self.quantiles)
+
+    def get_mu_sigma(self, x):
+        output = self.model(x)
+        mu, v, alpha, beta = tf.split(output, 4, axis=-1)
+        dist = tfd.Normal(loc=mu, scale=np.sqrt(beta/(v*(alpha-1))))
+        sigma = beta/(alpha-1.0)
+        return dist.quantile(self.quantiles), sigma
+
+    def get_uncertainties(self, x):
+        output = self.model(x)
+        mu, v, alpha, beta = tf.split(output, 4, axis=-1)
+        var = np.sqrt((beta /(v*(alpha - 1))))
+        return var
+
+    def evaluate(self, x, y, y_train_mu, y_train_scale):
+        return 0.0, 0.0, 0.0
 
     def train(self, x_train, y_train, batch_size=128, epochs = 10):
         self.model.compile(optimizer=self.optimizer, loss=self.EvidentialRegressionLoss)
