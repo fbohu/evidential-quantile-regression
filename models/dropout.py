@@ -4,7 +4,20 @@ import functools
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
 import numpy as np
+import os
 
+num_threads = 1
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+tf.config.threading.set_inter_op_parallelism_threads(
+    num_threads
+)
+tf.config.threading.set_intra_op_parallelism_threads(
+    num_threads
+)
+tf.config.set_soft_device_placement(True)
 
 class Dropout(Model):
     def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=5, drop_prob=0.1,lam=3e-4, patience = 50, learning_rate=3e-4, seed=0,

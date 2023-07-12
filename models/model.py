@@ -8,6 +8,20 @@ from functools import partial
 from bayes_opt import BayesianOptimization
 from bayes_opt import UtilityFunction
 import pickle
+import os
+
+num_threads = 1
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+tf.config.threading.set_inter_op_parallelism_threads(
+    num_threads
+)
+tf.config.threading.set_intra_op_parallelism_threads(
+    num_threads
+)
+tf.config.set_soft_device_placement(True)
 
 class Model(object):
     def __init__(self, input_shape, num_neurons, num_layers, activation, patience = 50, learning_rate=3e-4, seed=0, quantiles=[0.05, 0.95]):
@@ -127,7 +141,7 @@ class Model(object):
         return -1.0*np.mean(scores)
         
     def fit_with_synth(self, dropout, lr, batch_size):
-        x_train, y_train, y_train_q95 = get_synth_data(self.dataset, x_min=-4,x_max= 4, n=5000, train=True, quantiles=[0.05, 0.95])
+        x_train, y_train, y_train_q95 = get_synth_data(self.dataset, x_min=-4,x_max= 4, n=1000, train=True, quantiles=[0.05, 0.95])
         scores = []
         for _ in range(5):
             model = self.create_model(x_train.shape[1:], 128, 3, dropout, activation=self.activation)

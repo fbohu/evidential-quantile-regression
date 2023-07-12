@@ -16,6 +16,15 @@ from models.evidental_gauss import EvidentalGauss
 import numpy as np
 import tensorflow as tf
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.set_soft_device_placement(True)
+
+
 def standardize(data):
     mu = data.mean(axis=0, keepdims=1)
     scale = data.std(axis=0, keepdims=1)
@@ -61,20 +70,32 @@ def main(args):
     
     modeltype = get_model(args.model)
     #hpara = get_hparams(args.dataset, args.model)
-
-
+    '''
     model = modeltype(input_shape=x_train.shape[1:], 
-            num_neurons=128,
-            num_layers=3, 
+            num_neurons=128,#int(hpara['hidden_size']), 
+            num_layers=3,#int(hpara['layers']), 
             activation='leaky_relu',
-            drop_prob=0.1,
-            learning_rate=3e-4,
-            patience=250,
+            lam=0.0,
+            drop_prob=hpara['dropout'],
+            learning_rate=hpara['lr'],
+            seed=seeds,
+            patience=50,
+            quantiles=quantiles)
+    
+    model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=500)
+    '''
+    model = modeltype(input_shape=x_train.shape[1:], 
+            num_neurons=256,
+            num_layers=3, 
+            lam=0.0,
+            activation='leaky_relu',
+            drop_prob=0.1,# if args.model == 'dropout' else 0.0,
+            learning_rate=5e-3,
+            patience=50,
             seed=seeds,
             quantiles=quantiles)
-
     
-    model.train(x_train, y_train, batch_size=128, epochs=500)
+    model.train(x_train, y_train, batch_size=32, epochs=500)
 
     tl, nll, time = model.evaluate(x_test, y_test, y_train_mu, y_train_scale)
     tls.append(tl)
@@ -84,8 +105,6 @@ def main(args):
     preds = model.predict(x_test)
     errors = (y_test_q95-(preds* y_train_scale + y_train_mu))
 
-    mu, _ = model.get_mu_sigma(x_test)
-    #mu = (mu*y_train_scale) + y_train_mu
     mu = (preds*y_train_scale) + y_train_mu
     sigma = model.get_uncertainties(x_test)*y_train_scale
 

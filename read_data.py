@@ -1,17 +1,18 @@
 import os
 import numpy as np
 import pandas as pd
-
+import tensorflow as tf
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
-
 def get_dist(which, x):
     return {
-        'Gaussian': tfd.Normal(0,abs(x/5)+0.2),
-        'Expo': tfd.Exponential(rate=1/(2 * abs(x)+0.2)),
-        'Gamma': tfd.Gamma(1, 1/(2 * abs(x)+0.2)),
-        'Uniform': tfd.Uniform(abs(x),  2*x),
+        'Gaussian': tfd.Normal(0,3*abs(x)+0.2),
+        'Expo': tfd.Exponential(rate=1/(4* abs(x)+0.2)),
+        #'Gamma': tfd.Gamma(2*abs(x), 1/(abs(x)+0.2)),
+        'Gamma': tfd.Gamma(3*abs(x), 1/(2*abs(x)+0.2)),
+        'HalfCauchy': tfd.HalfCauchy(loc=0., scale=0.5*abs(x)+0.2),
+        'Laplace': tfd.Laplace(loc=0., scale=5*abs(x)+0.2),
     }[which]
 
 
@@ -19,9 +20,9 @@ def get_synth_data(name = 'Gaussian', x_min=-4, x_max=4, n=1000, quantiles = [0.
     x = np.linspace(x_min, x_max, n)
     x = np.expand_dims(x, -1).astype(np.float32)
     dist = get_dist(name, x)
-    y = np.sin(x)*3 +dist.sample().numpy().astype(np.float32)    
-
-    return x, y, np.sin(x)*3+dist.quantile(quantiles).numpy().astype(np.float32)
+    tf.random.set_seed(0)
+    y = x**3+dist.sample().numpy().astype(np.float32)    
+    return x, y, x**3+dist.quantile(quantiles).numpy().astype(np.float32)
 
 
 vb_dir   = os.path.dirname(__file__)

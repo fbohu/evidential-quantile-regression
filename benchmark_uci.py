@@ -14,6 +14,8 @@ from models.dropout import Dropout
 from models.evidental import Evidental
 import numpy as np
 import tensorflow as tf
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1)
 
 
 def get_hparams(dataset, model):
@@ -25,7 +27,7 @@ def get_model(which):
     return {
         'dropout': Dropout,
         'ensemble': Ensemble,
-        'evidental': Evidental
+        'evidental': Evidental,
     }[which]
 
 

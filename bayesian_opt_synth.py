@@ -15,6 +15,8 @@ from models.evidental import Evidental
 from models.evidental_gauss import EvidentalGauss
 import numpy as np
 import tensorflow as tf
+tf.config.threading.set_inter_op_parallelism_threads(10)
+tf.config.threading.set_intra_op_parallelism_threads(10)
 
 def get_model(which):
     return {
@@ -37,7 +39,7 @@ def main(args):
     modeltype = get_model(args.model)
     
     model = modeltype(input_shape=x_train.shape[1:], num_neurons=1, 
-            num_layers=1, activation='leaky_relu', learning_rate=1, seed=seeds, quantiles=quantiles)
+            num_layers=1, activation='leaky_relu', lam = 0.0, learning_rate=1, seed=seeds, quantiles=quantiles)
     
     model.bayes_opt(args.dataset, results_path)
 
