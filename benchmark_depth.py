@@ -62,13 +62,13 @@ def main(args):
     modeltype = get_model(args.model)
     
     model = modeltype(input_shape=x_train.shape[1:], 
-                num_neurons= 128, 
-                num_layers=3, 
+                num_neurons= 1, 
+                num_layers=1, 
                 lam=1e-4,
-                activation='relu',
-                drop_prob=0.1,
+                activation='leaky_relu',
+                drop_prob=0.1 if args.model == 'dropout' else 0.0,
                 learning_rate=5e-5,
-                patience=50)
+                patience=50, quantiles=[0.05, 0.95])
 
     model.train(x_train=x_train, y_train=y_train, batch_size=32, epochs=500)
     # Prepare the validation dataset.

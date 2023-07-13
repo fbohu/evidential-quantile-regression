@@ -12,7 +12,7 @@ from layers.conv2d import Conv2DNormalGamma
 
 class ConvEnsemble(Model):
     def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=1, drop_prob=0.1, lam=3e-4, patience = 50, learning_rate=3e-4, seed=0,
-                quantiles=[0.05, 0.95]):
+                quantiles=[0.25, 0.75]):
         super(ConvEnsemble, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed, quantiles)
         tf.random.set_seed(seed)
         np.random.seed(seed)
@@ -111,7 +111,7 @@ class ConvEnsemble(Model):
 
     def predict(self, x):
         predictions = []
-        for i in range(self.num_ensembl6es):
+        for i in range(self.num_ensembles):
             output = self.models[i](x)
             mu, sigma = tf.split(output, 2, axis=-1)
             predictions.append(mu)

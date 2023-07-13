@@ -26,7 +26,6 @@ tf.config.set_soft_device_placement(True)
 class Model(object):
     def __init__(self, input_shape, num_neurons, num_layers, activation, patience = 50, learning_rate=3e-4, seed=0, quantiles=[0.05, 0.95]):
         self.learning_rate = learning_rate
-        #self.quantiles = [0.05, 0.25, 0.5, 0.75, 0.95]
         self.quantiles = quantiles
         self.num_quantiles = len(self.quantiles)
         self.patience = patience
