@@ -9,10 +9,10 @@ def get_dist(which, x):
     return {
         'Gaussian': tfd.Normal(0,3*abs(x)+0.2),
         'Expo': tfd.Exponential(rate=1/(4* abs(x)+0.2)),
-        #'Gamma': tfd.Gamma(2*abs(x), 1/(abs(x)+0.2)),
         'Gamma': tfd.Gamma(3*abs(x), 1/(2*abs(x)+0.2)),
         'HalfCauchy': tfd.HalfCauchy(loc=0., scale=0.5*abs(x)+0.2),
         'Laplace': tfd.Laplace(loc=0., scale=5*abs(x)+0.2),
+        'Dis': tfd.Exponential(rate=(abs(x)/4)),
     }[which]
 
 

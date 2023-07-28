@@ -4,3 +4,8 @@ __pycache__/*
 */__pycache__/*
 
 */depth/*
+
+*.pdf
+*.png
+*/*.pdf
+*/*.png
