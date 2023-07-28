@@ -5,5 +5,5 @@ This repository conatins the code for the paper Deep Evidential Bayesian Quantil
 A minimal example of the code is available in the example notebook.
 
 
-** Reproducilibity.
+## Reproducilibity.
 All the results in the paper can be repoduced with this repository.
