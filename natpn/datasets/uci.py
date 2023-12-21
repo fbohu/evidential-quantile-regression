@@ -107,6 +107,11 @@ class WineDataModule(_UciDataModule):
 
         super().setup(stage)
 
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([11])
+
+
 @register("boston")
 class BostonDataModule(_UciDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
@@ -137,8 +142,12 @@ class BostonDataModule(_UciDataModule):
             )
             # Mark done
             self.did_setup = True
-
         super().setup(stage)
+
+
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([13])
 
 
 @register("concrete")
@@ -179,7 +188,6 @@ class PowerPlantDataModule(_UciDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         if not self.did_setup:
             (X_train, y_train), (X_test, y_test), y_train_mu, y_train_scale = load_dataset('power-plant')
-
             X_train = torch.from_numpy(X_train).float()
             y_train = torch.from_numpy(y_train).float().squeeze()
             X_test = torch.from_numpy(X_test).float()
@@ -206,6 +214,12 @@ class PowerPlantDataModule(_UciDataModule):
             self.did_setup = True
 
         super().setup(stage)
+
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([4])
+
+
 
 @register("yacht")
 class YachtDataModule(_UciDataModule):
@@ -240,6 +254,11 @@ class YachtDataModule(_UciDataModule):
 
         super().setup(stage)
 
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([6])
+
+
 @register("energy-efficiency")
 class EnergyEfficiencyDataModule(_UciDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
@@ -272,6 +291,7 @@ class EnergyEfficiencyDataModule(_UciDataModule):
             self.did_setup = True
 
         super().setup(stage)
+
 
 @register("kin8nm")
 class Kin8nmDataModule(_UciDataModule):
@@ -306,6 +326,10 @@ class Kin8nmDataModule(_UciDataModule):
 
         super().setup(stage)
 
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([8])
+
 @register("naval")
 class NavalDataModule(_UciDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
@@ -339,6 +363,10 @@ class NavalDataModule(_UciDataModule):
 
         super().setup(stage)
 
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([16])
+
 @register("protein")
 class ProteinDataModule(_UciDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
@@ -371,3 +399,7 @@ class ProteinDataModule(_UciDataModule):
             self.did_setup = True
 
         super().setup(stage)
+
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([9])
