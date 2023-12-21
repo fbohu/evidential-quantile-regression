@@ -69,21 +69,6 @@ def main(args):
     y_plot = (y_plot - y_train_mu) / y_train_scale
     
     modeltype = get_model(args.model)
-    #hpara = get_hparams(args.dataset, args.model)
-    '''
-    model = modeltype(input_shape=x_train.shape[1:], 
-            num_neurons=128,#int(hpara['hidden_size']), 
-            num_layers=3,#int(hpara['layers']), 
-            activation='leaky_relu',
-            lam=0.0,
-            drop_prob=hpara['dropout'],
-            learning_rate=hpara['lr'],
-            seed=seeds,
-            patience=50,
-            quantiles=quantiles)
-    
-    model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=500)
-    '''
     model = modeltype(input_shape=x_train.shape[1:], 
             num_neurons=256,
             num_layers=3, 
@@ -103,7 +88,7 @@ def main(args):
     times.append(time)
 
     preds = model.predict(x_test)
-    errors = (y_test_q95-(preds* y_train_scale + y_train_mu))
+    errors = (y_test_q95-(preds * y_train_scale + y_train_mu))
 
     mu = (preds*y_train_scale) + y_train_mu
     sigma = model.get_uncertainties(x_test)*y_train_scale
