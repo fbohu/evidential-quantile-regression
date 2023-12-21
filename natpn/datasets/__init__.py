@@ -5,7 +5,7 @@ from .cifar import Cifar10DataModule, Cifar100DataModule
 from .mnist import FashionMnistDataModule, MnistDataModule
 from .nyu_depth_v2 import NyuDepthV2DataModule
 from .sensorless_drive import SensorlessDriveDataModule
-from .uci import WineDataModule, BostonDataModule, ConcreteDataModule, PowerPlantDataModule, YachtDataModule, EnergyEfficiencyDataModule, Kin8nmDataModule, NavalDataModule, ProteinDataModule
+from .uci import WineDataModule, BostonDataModule, ConcreteDataModule, PowerPlantDataModule, YachtDataModule, EnergyEfficiencyDataModule, Kin8nmDataModule, NavalDataModule, ProteinDataModule, SynthDataModule
 
 __all__ = [
     "BikeSharingNormalDataModule",
@@ -21,6 +21,7 @@ __all__ = [
     "Kin8nmDataModule",
     "NavalDataModule",
     "ProteinDataModule",
+    'SynthDataModule',
     "DATASET_REGISTRY",
     "DataModule",
     "FashionMnistDataModule",
