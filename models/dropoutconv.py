@@ -13,7 +13,7 @@ from layers.conv2d import Conv2DNormalGamma
 
 class ConvDropout(Model):
     def __init__(self, input_shape, num_neurons, num_layers, activation, num_ensembles=5, drop_prob=0.1,lam=3e-4, patience = 50, learning_rate=3e-4, seed=0,
-        quantiles=[0.25, 0.75]):
+        quantiles=[0.05, 0.95]):
         super(ConvDropout, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed, quantiles)
         tf.random.set_seed(seed)
         np.random.seed(seed)
@@ -96,10 +96,13 @@ class ConvDropout(Model):
 
 
     def train(self, x_train, y_train,batch_size=128, epochs = 10):
-        self.model.compile(optimizer=self.optimizer, loss=self.nll_loss)
-        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=False, verbose=1)
-        mc = tf.keras.callbacks.ModelCheckpoint('checkpoint/dropout.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
-        self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10)#, callbacks=[mc])
+        self.model.compile(optimizer=self.optimizer, loss=self.nll_loss,  metrics=[self.eval_conv])
+        #callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience, restore_best_weights=False, verbose=1)
+        #mc = tf.keras.callbacks.ModelCheckpoint('checkpoint/dropout.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
+        #self.history = self.model.fit(x_train, y_train, batch_size=batch_size,verbose=2, epochs=epochs,shuffle=True, validation_split=0.10)#, callbacks=[mc])
+        callback = tf.keras.callbacks.EarlyStopping(monitor='eval_conv', patience=self.patience, restore_best_weights=True, verbose=1)
+        self.history = self.model.fit(x_train, y_train, batch_size=batch_size, verbose=2, epochs=epochs,
+                                        shuffle=True, validation_split=0.10, callbacks=[callback])
         #self.model.load_weights('checkpoint/dropout.h5')
 
     def predict(self, x):
@@ -139,6 +142,11 @@ class ConvDropout(Model):
             loss += self.nll(y, tf.expand_dims(mu[:,:,:,i],3), tf.expand_dims(sigma[:,:,:,i],3), q)
         return loss
 
+    def eval_conv(self, y, y_pred):
+        loss = 0
+        for i, q in enumerate(self.quantiles):
+            loss += self.tilted_loss(q, y-tf.expand_dims(y_pred[:,:,:,i], 3))
+        return tf.reduce_mean(loss)
 
 def get_crop_shape(target, refer):
     # width, the 3rd dimension

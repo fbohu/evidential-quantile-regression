@@ -18,7 +18,7 @@ from layers.conv2d import Conv2DNormalGamma
 
 class ConvEvidental(Model):
     def __init__(self, input_shape, num_neurons, num_layers, activation, drop_prob=0.1, lam = 3e-4, patience = 50, learning_rate=3e-4,  coeff=5e-1, seed=0,
-                quantiles=[0.25, 0.75]):
+                quantiles=[0.05, 0.95]):
         super(ConvEvidental, self).__init__(input_shape, num_neurons, num_layers, activation, patience, learning_rate, seed, quantiles)
         tf.random.set_seed(seed)
         np.random.seed(seed)
@@ -36,21 +36,25 @@ class ConvEvidental(Model):
 
         Conv2D_ = functools.partial(Conv2D, activation=activation, padding='same', kernel_regularizer=l2(self.lam))
 
-        conv1 = Conv2D_(32, (3, 3), name='conv1_1')(inputs)
+        conv1 = Conv2D_(32, (3, 3))(inputs)
         conv1 = Conv2D_(32, (3, 3))(conv1)
         pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+        pool1 = SpatialDropout2D(self.drop_prob)(pool1)
 
         conv2 = Conv2D_(64, (3, 3))(pool1)
         conv2 = Conv2D_(64, (3, 3))(conv2)
         pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+        pool2 = SpatialDropout2D(self.drop_prob)(pool2)
 
         conv3 = Conv2D_(128, (3, 3))(pool2)
         conv3 = Conv2D_(128, (3, 3))(conv3)
         pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+        pool3 = SpatialDropout2D(self.drop_prob)(pool3)
 
         conv4 = Conv2D_(256, (3, 3))(pool3)
         conv4 = Conv2D_(256, (3, 3))(conv4)
         pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+        pool4 = SpatialDropout2D(self.drop_prob)(pool4)
 
         conv5 = Conv2D_(512, (3, 3))(pool4)
         conv5 = Conv2D_(512, (3, 3))(conv5)
@@ -92,11 +96,10 @@ class ConvEvidental(Model):
         return model
 
     def train(self, x_train, y_train, batch_size=128, epochs = 10):
-        self.model.compile(optimizer=self.optimizer, loss=self.loss_,  metrics=[self.nll_eval])
-        mc = tf.keras.callbacks.ModelCheckpoint('checkpoint/evidental.h5', monitor='val_loss', mode='min', verbose=1, save_best_only=True)
-        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=self.patience,  restore_best_weights=True, verbose=1)
+        self.model.compile(optimizer=self.optimizer, loss=self.loss_,  metrics=[self.eval_conv, self.tilt, self.tilt2])
+        callback = tf.keras.callbacks.EarlyStopping(monitor='eval_conv', patience=self.patience, restore_best_weights=True, verbose=1)
         self.history = self.model.fit(x_train, y_train, batch_size=batch_size, verbose=2, epochs=epochs,
-                                        shuffle=True, validation_split=0.10)#, callbacks=[mc])
+                                        shuffle=True, validation_split=0.1, callbacks=[callback])
         #self.model.load_weights('checkpoint/evidental.h5')
 
     def predict(self, x):
@@ -132,6 +135,24 @@ class ConvEvidental(Model):
         for i, q in enumerate(self.quantiles):
             loss += self.nll(y, tf.expand_dims(mu[:,:,:,i], 3), tf.expand_dims(sigma[:,:,:,i], 3), q)
         return loss
+
+    def eval_conv(self, y, y_pred):
+        mu, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
+        loss = 0
+        for i, q in enumerate(self.quantiles):
+            loss += self.tilted_loss(q, y-tf.expand_dims(mu[:,:,:,i], 3))
+
+        return tf.reduce_mean(loss)
+
+    def tilt(self, y, y_pred):
+        mu, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
+        q5 = tf.expand_dims(tf.convert_to_tensor((mu[:,:,:,0]), dtype=tf.float32), 3)
+        return tf.reduce_mean(tf.cast(q5 < y, dtype=tf.float32))
+
+    def tilt2(self, y, y_pred):
+        mu, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
+        q5 = tf.expand_dims(tf.convert_to_tensor((mu[:,:,:,1]), dtype=tf.float32), 3)
+        return tf.reduce_mean(tf.cast(q5 < y, dtype=tf.float32))
 
 
 def get_crop_shape(target, refer):

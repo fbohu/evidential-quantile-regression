@@ -42,15 +42,15 @@ def main(args):
     x_test, y_test = (test["image"], test["depth"])
     ood_x, ood_y = (ood["image"], ood["depth"])
 
-    x_train = x_train[:]/np.float64(255.)
-    x_test = x_test[:]/np.float64(255.)
+    x_train = x_train[:]/np.float32(255.)
+    x_test = x_test[:]/np.float32(255.)
 
-    y_train = y_train[:]/np.float64(255.)
-    y_test = y_test[:]/np.float64(255.)
+    y_train = y_train[:]/np.float32(255.)
+    y_test = y_test[:]/np.float32(255.)
 
-    ood_x = ood_x[:]/np.float64(255.)
-    ood_y = ood_y[:]/np.float64(255.)
-
+    ood_x = ood_x[:]/np.float32(255.)
+    ood_y = ood_y[:]/np.float32(255.)
+    
     x_train = tf.convert_to_tensor(x_train, dtype=tf.float32)
     x_test = tf.convert_to_tensor(x_test, dtype=tf.float32)
     y_train = tf.convert_to_tensor(y_train, dtype=tf.float32)

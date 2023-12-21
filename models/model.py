@@ -55,7 +55,8 @@ class Model(object):
         preds = self.predict(x)
         y = (y*y_train_scale) + y_train_mu
         preds = (preds*y_train_scale) + y_train_mu
-
+        print(preds)
+        print(y)
         tl = self.loss(y, preds)
     
         mu, sigma = self.get_mu_sigma(x)

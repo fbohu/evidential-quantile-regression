@@ -12,13 +12,16 @@ import matplotlib.pyplot as plt
 from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.evidental import Evidental
+from models.evidental_gauss import EvidentalGauss
 import numpy as np
 import tensorflow as tf
 tf.config.threading.set_inter_op_parallelism_threads(1)
-tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1) 
 
 
 def get_hparams(dataset, model):
+    if model == 'evidental_gauss':
+        model = 'dropout'
     with open('hparams/' + dataset + '/' + model + '.pickle', 'rb') as handle:
         hparams = pickle.load(handle)
     return hparams['params']
@@ -28,6 +31,7 @@ def get_model(which):
         'dropout': Dropout,
         'ensemble': Ensemble,
         'evidental': Evidental,
+        'evidental_gauss': EvidentalGauss
     }[which]
 
 
@@ -57,14 +61,13 @@ def main(args):
             seed=seeds)
 
     
-    model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=model.epochs)
+    #model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=model.epochs)
+    model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=500)
 
     tl, nll, time = model.evaluate(x_test, y_test, y_train_mu, y_train_scale)
     tls.append(tl)
     nlls.append(nll)
     times.append(time)
-
-
 
     results = {
         'tls': tls,
@@ -80,11 +83,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
                     
-    parser.add_argument('--dataset', type=str, default='boston',
+    parser.add_argument('--dataset', type=str, default='protein',
                         choices=['boston', 'concrete', 'energy-efficiency',
                             'kin8nm', 'naval', 'power-plant', 'protein',
                             'wine', 'yacht'])
-    parser.add_argument('--model', type=str, default='evidental')
+    parser.add_argument('--model', type=str, default='evidental_gauss')
     parser.add_argument('--n_trials', type=int, default = 1)
     parser.add_argument('--seed', type=int, default = 1)
 
