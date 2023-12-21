@@ -403,3 +403,54 @@ class ProteinDataModule(_UciDataModule):
     @property
     def input_size(self) -> torch.Size:
         return torch.Size([9])
+
+
+
+@register("synth")
+class SynthDataModule(_UciDataModule):
+    def __init__(self, X_train, y_train, X_test, y_test, root: Optional[PathType] = None, seed: Optional[int] = None):
+        """
+        Args:
+            root: The directory where the dataset can be found or where it should be downloaded to.
+            seed: An optional seed which governs how train/test splits are created.
+        """
+        super().__init__(root, seed)
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_test = X_test
+        self.y_test = y_test
+
+
+    def setup(self, stage: Optional[str] = None) -> None:
+        if not self.did_setup:
+
+            X_train = torch.from_numpy(self.X_train).float()
+            y_train = torch.from_numpy(self.y_train).float().squeeze()
+            X_test = torch.from_numpy(self.X_test).float()
+            y_test = torch.from_numpy(self.y_test).float().squeeze()
+            
+            (X_train, X_val), (y_train, y_val) = tabular_train_test_split(
+                X_train, y_train, train_size=0.8, generator=self.generator
+            )
+            # Fit transforms
+            self.input_scaler.fit(X_train)
+            self.output_scaler.fit(y_train)
+
+            # Create datasets
+            self.train_dataset = TensorDataset(
+                X_train, y_train
+            )
+            self.val_dataset = TensorDataset(
+                X_val, y_val
+            )
+            self.test_dataset = TensorDataset(
+                X_test, y_test
+            )
+            # Mark done
+            self.did_setup = True
+
+        super().setup(stage)
+
+    @property
+    def input_size(self) -> torch.Size:
+        return torch.Size([1])

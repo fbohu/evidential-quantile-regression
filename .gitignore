@@ -9,3 +9,7 @@ __pycache__/*
 *.png
 */*.pdf
 */*.png
+
+
+
+*/__pycache__/*

@@ -5,6 +5,7 @@ import copy
 import pickle
 import argparse
 import random
+import torch
 
 from read_data import *
 import matplotlib.pyplot as plt
@@ -13,6 +14,7 @@ from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.evidental import Evidental
 from models.evidental_gauss import EvidentalGauss
+from models.natpn import MyNatPn
 import numpy as np
 import tensorflow as tf
 
@@ -43,7 +45,8 @@ def get_model(which):
         'dropout': Dropout,
         'ensemble': Ensemble,
         'evidental': Evidental,
-        'evidental_gauss': EvidentalGauss
+        'evidental_gauss': EvidentalGauss,
+        'natpn': MyNatPn
     }[which]
 
 
@@ -69,17 +72,22 @@ def main(args):
     y_plot = (y_plot - y_train_mu) / y_train_scale
     
     modeltype = get_model(args.model)
-    model = modeltype(input_shape=x_train.shape[1:], 
-            num_neurons=256,
-            num_layers=3, 
-            lam=0.0,
-            activation='leaky_relu',
-            drop_prob=0.1,# if args.model == 'dropout' else 0.0,
-            learning_rate=5e-3,
-            patience=50,
-            seed=seeds,
-            quantiles=quantiles)
-    
+    if args.model == 'natpn':
+        # quick fix for natpn
+        model = modeltype(dataset_name="synth", seed = seeds, patience = 50, learning_rate=3e-4, quantiles=[0.05, 0.25, 0.75, 0.95],
+                         X_train=x_train, y_train=y_train, X_test=x_test, y_test=y_test)
+    else:
+        model = modeltype(input_shape=x_train.shape[1:], 
+                num_neurons=256,
+                num_layers=3, 
+                lam=0.0,
+                activation='leaky_relu',
+                drop_prob=0.1,# if args.model == 'dropout' else 0.0,
+                learning_rate=5e-3,
+                patience=50,
+                seed=seeds,
+                quantiles=quantiles)
+        
     model.train(x_train, y_train, batch_size=32, epochs=500)
 
     tl, nll, time = model.evaluate(x_test, y_test, y_train_mu, y_train_scale)
@@ -87,6 +95,10 @@ def main(args):
     nlls.append(nll)
     times.append(time)
 
+    if args.model == 'natpn':
+        x_test = torch.tensor(x_test).float()
+    #preds = model.predict(x_test)
+    #else:
     preds = model.predict(x_test)
     errors = (y_test_q95-(preds * y_train_scale + y_train_mu))
 
@@ -111,7 +123,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()                
     parser.add_argument('--dataset', type=str, default='Gaussian')
-    parser.add_argument('--model', type=str, default='evidental')
+    parser.add_argument('--model', type=str, default='natpn')
     parser.add_argument('--n_trials', type=int, default = 1)
     parser.add_argument('--seed', type=int, default = 1)
 

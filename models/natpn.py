@@ -1,5 +1,5 @@
 from natpn import NaturalPosteriorNetwork
-from natpn.datasets import WineDataModule, BostonDataModule, ConcreteDataModule, PowerPlantDataModule, YachtDataModule, EnergyEfficiencyDataModule, Kin8nmDataModule, NavalDataModule, ProteinDataModule
+from natpn.datasets import WineDataModule, BostonDataModule, ConcreteDataModule, PowerPlantDataModule, YachtDataModule, EnergyEfficiencyDataModule, Kin8nmDataModule, NavalDataModule, ProteinDataModule, SynthDataModule
 import torch
 import pytorch_lightning as pl
 import numpy as np
@@ -23,20 +23,24 @@ def _get_dataset(which):
     }[which]
 
 class MyNatPn(object):
-    def __init__(self, dataset_name, patience = 50, learning_rate=3e-4, seed=0, quantiles=[0.05, 0.95]):
+    def __init__(self, dataset_name, patience = 50, learning_rate=3e-4, seed=0, quantiles=[0.05, 0.95], X_train=None, y_train=None, X_test=None, y_test=None):
         self.learning_rate = learning_rate
         self.quantiles = quantiles
         self.num_quantiles = len(self.quantiles)
         pl.seed_everything(seed)
 
-        self.dm = _get_dataset(dataset_name)
+        if dataset_name == 'synth':
+            self.dm = SynthDataModule(X_train, y_train, X_test, y_test)
+        else:
+            self.dm = _get_dataset(dataset_name)
+
         self.estimator = NaturalPosteriorNetwork(
                     #latent_dim=5,
                     encoder="tabular",
                     flow_num_layers=16,
                     learning_rate=learning_rate,
                     learning_rate_decay=True,
-                    trainer_params=dict(max_epochs=500),
+                    trainer_params=dict(max_epochs=1),
                 )
 
     def loss(self):
@@ -66,6 +70,17 @@ class MyNatPn(object):
     def get_mu_sigma(self, x):
         preds = self.predict(x)
         return preds, tf.ones_like(preds)
+
+    def get_uncertainties(self, x):
+        preds, _ = self.estimator.model_(x)
+        v = preds.lambd.detach().unsqueeze(1).numpy()
+        alpha = preds.alpha.detach().unsqueeze(1).numpy()
+        beta = preds.beta.detach().unsqueeze(1).numpy()
+
+        var =np.sqrt(beta/(alpha-1))
+        #mu, v, alpha, beta = tf.split(output, 4, axis=-1)
+        #var = np.sqrt((beta /(v*(alpha - 1))))
+        return var
 
     def save(self, path):
         raise NotImplementedError
