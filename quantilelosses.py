@@ -11,7 +11,7 @@ def NIG_NLL(y, gamma, v, alpha, beta, w_i_dis, quantile, reduce=True):
         + (alpha+0.5) * tf.math.log(v*(y-gamma)**2 + twoBlambda)  \
         + tf.math.lgamma(alpha)  \
         - tf.math.lgamma(alpha+0.5)
-
+   
     return tf.reduce_mean(nll) if reduce else nll
 
 def KL_NIG(mu1, v1, a1, b1, mu2, v2, a2, b2):
@@ -42,7 +42,7 @@ def NIG_Reg(y, gamma, v, alpha, beta, w_i_dis, quantile, omega=0.01, reduce=True
     else:
         evi = 2*v+alpha+1/beta
         reg = error*evi
-        
+
     return tf.reduce_mean(reg) if reduce else reg
 
 def quant_evi_loss(y_true, gamma, v, alpha, beta, quantile, coeff=1.0, reduce=True):
@@ -55,3 +55,9 @@ def quant_evi_loss(y_true, gamma, v, alpha, beta, quantile, coeff=1.0, reduce=Tr
     loss_nll = NIG_NLL(y_true, mu, v, alpha, beta, w_i_dis, quantile, reduce=reduce)
     loss_reg = NIG_Reg(y_true, gamma, v, alpha, beta, w_i_dis, quantile, reduce=reduce)
     return loss_nll + coeff * loss_reg
+
+def quant_evi_loss_upt(y_true, gamma, v, alpha, beta, quantile, coeff=1.0, reduce=True):
+    loss_one = quant_evi_loss(y_true, tf.stop_gradient(gamma), v, alpha, beta, quantile, coeff=coeff, reduce=False)
+    error_loss = tilted_loss(quantile, y_true-gamma)
+    return tf.reduce_sum(reg) if reduce else reg   
+    #return tf.reduce_mean(loss_one + error_loss) #loss_nll + coeff * loss_reg

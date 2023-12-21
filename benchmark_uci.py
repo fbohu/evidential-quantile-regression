@@ -13,6 +13,7 @@ from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.evidental import Evidental
 from models.evidental_gauss import EvidentalGauss
+from models.natpn import MyNatPn
 import numpy as np
 import tensorflow as tf
 tf.config.threading.set_inter_op_parallelism_threads(1)
@@ -31,7 +32,8 @@ def get_model(which):
         'dropout': Dropout,
         'ensemble': Ensemble,
         'evidental': Evidental,
-        'evidental_gauss': EvidentalGauss
+        'evidental_gauss': EvidentalGauss,
+        'natpn': MyNatPn
     }[which]
 
 
@@ -49,10 +51,15 @@ def main(args):
     modeltype = get_model(args.model)
     
     modeltype = get_model(args.model)
-    hpara = get_hparams(args.dataset, args.model)
-    print(hpara)
-
-    model = modeltype(input_shape=x_train.shape[1:], 
+    if args.model == 'natpn':
+        # quick fix for natpn
+        hpara = {}
+        hpara['batch_size'] = 32
+        model = modeltype(dataset_name=args.dataset, seed = seeds, patience = 50, learning_rate=3e-4, quantiles=[0.05, 0.95])
+    else:
+        hpara = get_hparams(args.dataset, args.model)
+        print(hpara)
+        model = modeltype(input_shape=x_train.shape[1:], 
             num_neurons=128,#int(hpara['hidden_size']), 
             num_layers=2,#int(hpara['layers']), 
             activation='leaky_relu',
@@ -61,7 +68,6 @@ def main(args):
             seed=seeds)
 
     
-    #model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=model.epochs)
     model.train(x_train, y_train, batch_size=int(hpara['batch_size']), epochs=500)
 
     tl, nll, time = model.evaluate(x_test, y_test, y_train_mu, y_train_scale)
@@ -87,7 +93,7 @@ if __name__ == "__main__":
                         choices=['boston', 'concrete', 'energy-efficiency',
                             'kin8nm', 'naval', 'power-plant', 'protein',
                             'wine', 'yacht'])
-    parser.add_argument('--model', type=str, default='evidental_gauss')
+    parser.add_argument('--model', type=str, default='natpn')
     parser.add_argument('--n_trials', type=int, default = 1)
     parser.add_argument('--seed', type=int, default = 1)
 

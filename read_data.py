@@ -12,7 +12,9 @@ def get_dist(which, x):
         'Gamma': tfd.Gamma(3*abs(x), 1/(2*abs(x)+0.2)),
         'HalfCauchy': tfd.HalfCauchy(loc=0., scale=0.5*abs(x)+0.2),
         'Laplace': tfd.Laplace(loc=0., scale=5*abs(x)+0.2),
-        'Dis': tfd.Exponential(rate=(abs(x)/4)),
+        #'Dis': tfd.Normal(loc=0, scale=3+10.0 * tf.exp(-1.25 * np.abs(x))),
+        'Dis': tfd.Normal(loc=0, scale=1+10.0 * tf.exp(-0.3 * np.abs(x))),
+        #'Dis':tfd.Exponential(rate=0.1+((0.3*abs(x)))),
     }[which]
 
 
@@ -21,6 +23,9 @@ def get_synth_data(name = 'Gaussian', x_min=-4, x_max=4, n=1000, quantiles = [0.
     x = np.expand_dims(x, -1).astype(np.float32)
     dist = get_dist(name, x)
     tf.random.set_seed(0)
+    if name == 'Dis':
+        y = 4*x**2 + dist.sample().numpy().astype(np.float32)    
+        return x, y, 4*x**2+dist.quantile(quantiles).numpy().astype(np.float32)
     y = x**3+dist.sample().numpy().astype(np.float32)    
     return x, y, x**3+dist.quantile(quantiles).numpy().astype(np.float32)
 

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from models.ensemble import Ensemble
 from models.dropout import Dropout
 from models.evidental import Evidental
+from models.faithevidental import FaithEvidental
 import numpy as np
 import tensorflow as tf
 
@@ -24,21 +25,23 @@ def plot_dis(x_plot, model,x_train_mu, x_train_scale, y_train_scale, name):
     epistemic_ = model.get_uncertainties(x_plot)
     mu, aleatoric_ = model.get_mu_sigma(x_plot)
     
+    true_noise = (5.0 * tf.exp(-1.5 * np.abs(x_plot)))/y_train_scale    
     #scale epistemic to be between 0 and 1
     epistemic = epistemic_[:,0]
 
     aleatoric = tf.expand_dims((mu[:,1]-mu[:,0]),1)
 
     x_plot = x_plot*x_train_scale + x_train_mu
-    plt.plot(x_plot, epistemic_[:,0],'--', label='Epsitemic Uncertainty - 5th Quantile', color='#4285F9')
-    plt.plot(x_plot, epistemic_[:,1],'--', label='Epsitemic Uncertainty - 95th Quantile', color='#F4B410')
+    plt.plot(x_plot, epistemic_[:,0]+epistemic_[:,1],'--', label='Epsitemic Uncertainty - 5th Quantile', color='#4285F9')
+    #plt.plot(x_plot, epistemic_[:,1],'--', label='Epsitemic Uncertainty - 95th Quantile', color='#F4B410')
     plt.plot(x_plot, aleatoric, label='Aleatoric Uncertainty', color='#0F9D50')
+    #plt.plot(x_plot, true_noise, label='true', color='black')
 
     # add gray area outside of training data
 
 
-    plt.plot([-4, -4], [0, 1], 'k--', alpha=0.4, zorder=0)
-    plt.plot([+4, +4], [0, 1], 'k--', alpha=0.4, zorder=0)
+    plt.plot([-4, -4], [0, 100], 'k--', alpha=0.4, zorder=0)
+    plt.plot([+4, +4], [0, 100], 'k--', alpha=0.4, zorder=0)
 
     # fill gray for x < -4
     plt.fill_between([-8, -4], [-150, -150], [150, 150], color='gray', alpha=0.2)
@@ -50,37 +53,58 @@ def plot_dis(x_plot, model,x_train_mu, x_train_scale, y_train_scale, name):
     plt.savefig('figures/' + name + '_combined_1.pdf', bbox_inches='tight')
     plt.close()
         #scale epistemic to be between 0 and 1
-    epistemic = epistemic_[:,0]
+    epistemic = (epistemic_[:,0]+epistemic_[:,1])
+    epistemic = tf.where(mu[:,1] > mu[:,0], epistemic/(mu[:,1]-mu[:,0]), epistemic/0.01)
+    #epistemic /= abs(mu[:,1]-mu[:,0])
     #epistemic = (epistemic - np.min(epistemic))/(np.max(epistemic) - np.min(epistemic))
 
-    aleatoric = tf.expand_dims(aleatoric_[:,0], 1)#*y_train_scale
+    aleatoric = (tf.expand_dims(aleatoric_[:,0], 1)+tf.expand_dims(aleatoric_[:,1], 1))*y_train_scale
+    #aleatoric /= tf.expand_dims((mu[:,1]-mu[:,0]),1)
     #aleatoric = (aleatoric - np.min(aleatoric))/(np.max(aleatoric) - np.min(aleatoric))
 
     plt.plot(x_plot, epistemic, label='epistemic')
+    #plt.plot(x_plot,  epistemic_[:,0], label='epistemic')
+    #plt.plot(x_plot,  epistemic_[:,1], label='epistemic')
     plt.plot(x_plot, aleatoric, label='aleatoric')
 
-    plt.plot([-4, -4], [0, 1], 'k--', alpha=0.4, zorder=0)
-    plt.plot([+4, +4], [0, 1], 'k--', alpha=0.4, zorder=0)
-    plt.ylim(-0.05, 1.10)
+    plt.plot([-4, -4], [0, 100], 'k--', alpha=0.4, zorder=0)
+    plt.plot([+4, +4], [0, 100], 'k--', alpha=0.4, zorder=0)
+        # fill gray for x < -4
+    plt.fill_between([-8, -4], [-150, -150], [150, 150], color='gray', alpha=0.2)
+    plt.fill_between([4, 8], [-150, -150], [150, 150], color='gray', alpha=0.2)
+    plt.ylim(-0.05, None)
     plt.legend(loc="upper left")
     plt.savefig('figures/' + name + '_unc_1.pdf', bbox_inches='tight')
     plt.close()
 
     #scale epistemic to be between 0 and 1
-    epistemic = epistemic_[:,1]
-    #epistemic = (epistemic - np.min(epistemic))/(np.max(epistemic) - np.min(epistemic))
+    epistemic = epistemic_[:,0]
+    epistemic = (epistemic - np.min(epistemic))/(np.max(epistemic) - np.min(epistemic))
 
-    aleatoric = tf.expand_dims(aleatoric_[:,0], 1)#*y_train_scale
+    aleatoric = tf.expand_dims(aleatoric_[:,0], 1)*y_train_scale
+    aleatoric /= tf.expand_dims((mu[:,1]-mu[:,0]),1)
     #aleatoric = (aleatoric - np.min(aleatoric))/(np.max(aleatoric) - np.min(aleatoric))
 
-    plt.plot(x_plot, epistemic, label='epistemic')
-    plt.plot(x_plot, aleatoric, label='aleatoric')
+    #plt.plot(x_plot, epistemic_[:,0], label='epistemic')
+    plt.plot(x_plot, epistemic_[:,1], label='epistemic')
+    #plt.plot(x_plot, tf.expand_dims(aleatoric_[:,0], 1), label='aleatoric')
+    plt.plot(x_plot, tf.expand_dims(aleatoric_[:,1], 1)*y_train_scale, label='aleatoric')
 
     plt.plot([-4, -4], [0, 1], 'k--', alpha=0.4, zorder=0)
     plt.plot([+4, +4], [0, 1], 'k--', alpha=0.4, zorder=0)
-    plt.ylim(-0.05, 1.10)
-    plt.legend(loc="upper left")
+    #plt.ylim(-0.05, 1.)
+    plt.legend(loc="upper left") 
     plt.savefig('figures/' + name + '_unc_2.pdf', bbox_inches='tight')
+    plt.close()
+
+    plt.plot(x_plot, tf.expand_dims(aleatoric_[:,0], 1), label='aleatoric')
+    plt.plot(x_plot, tf.expand_dims(aleatoric_[:,1], 1), label='aleatoric')
+
+    plt.plot([-4, -4], [0, 1], 'k--', alpha=0.4, zorder=0)
+    plt.plot([+4, +4], [0, 1], 'k--', alpha=0.4, zorder=0)
+    plt.ylim(-0.05, 0.1)
+    plt.legend(loc="upper left")
+    plt.savefig('figures/' + name + '_unc_3.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -150,11 +174,17 @@ def get_model(which):
     return {
         'dropout': Dropout,
         'ensemble': Ensemble,
-        'evidental': Evidental
+        'evidental': Evidental,
+        'faithevidental': FaithEvidental
     }[which]
 
 
 def main(args):
+    seeds = args.seed
+    np.random.seed(seeds)
+    random.seed(seeds)
+    tf.random.set_seed(seeds)
+
     x_train, y_train, y_quantiles_train = get_synth_data('Dis', -4, 4, n=5000, train=True)
     x_test, y_test, y_quantiles_test = get_synth_data('Dis', -4, 4, n=250, train=True)
 
@@ -168,20 +198,24 @@ def main(args):
     y_train, y_train_mu, y_train_scale = standardize(y_train)
     y_test = (y_test - y_train_mu) / y_train_scale
     y_plot = (y_plot - y_train_mu) / y_train_scale
+    #y_train_scale = 1.0
+    #y_train_mu = 1.0
 
     modeltype = get_model(args.model)
-
+    #This gives decent results:
     model = modeltype(input_shape=x_train.shape[1:], 
             num_neurons= 128, 
-            num_layers=3, 
-            lam=1e-4,
+            num_layers=3,
+            lam=1e-2,
             activation='leaky_relu',
-            drop_prob=0.1,
-            patience=50,
-            coeff=3e-1,
-            learning_rate=5e-3)
+            drop_prob=0.15,
+            patience=100,
+            coeff=1e-1,
+            learning_rate=3e-4,
+            quantiles=[0.05, 0.95],)
 
-    model.train(x_train, y_train, batch_size=32, epochs=500)
+
+    model.train(x_train, y_train, batch_size=128, epochs=500, verbose=1)
     plot_q(x_train, y_train, x_test, y_test, x_train_mu, x_train_scale, y_train_mu, y_train_scale, model, args.model)
     plot_q(x_train, y_train, x_plot, y_plot, x_train_mu, x_train_scale, y_train_mu, y_train_scale, model, args.model+"_plot")
 
@@ -189,7 +223,7 @@ def main(args):
 
 
     evi_preds = model.predict(x_plot)*y_train_scale + y_train_mu
-    _, sigma = model.get_mu_sigma(x_plot)
+    preds, sigma = model.get_mu_sigma(x_plot)
     sigma = sigma*y_train_scale
     var_ = model.get_uncertainties(x_plot)*y_train_scale
 
@@ -220,6 +254,13 @@ def main(args):
     plt.legend(loc="upper left")
     plt.savefig('qualitiv_evi_epi_synth.pdf', bbox_inches='tight')
     plt.close()
+
+    evi_preds = model.predict(x_test)#*y_train_scale + y_train_mu
+    preds, sigma = model.get_mu_sigma(x_test)
+    print(preds.shape)
+    print(y_test.shape)
+    print((preds[:,0] < y_test[:,0]).numpy().mean())
+    print((preds[:,1] < y_test[:,0]).numpy().mean())
     print(model.evaluate(x_test, y_test, y_train_mu, y_train_scale))
     print(model.evaluate(x_plot, y_plot, y_train_mu, y_train_scale))
 
@@ -230,7 +271,7 @@ if __name__ == "__main__":
                     
     parser.add_argument('--noise', type=str, default='expo',
                         choices=['expo'])
-    parser.add_argument('--model', type=str, default='evidental')
+    parser.add_argument('--model', type=str, default='faithevidental')
     parser.add_argument('--n_trials', type=int, default = 1)
     parser.add_argument('--seed', type=int, default = 1)
 
